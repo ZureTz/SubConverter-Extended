@@ -1199,8 +1199,13 @@ void formatterShortId(std::string &input) {
           remove_if(originalId.begin(), originalId.end(), ::isspace),
           originalId.end());
 
-      // 添加引号
-      std::string modifiedId = " \"" + originalId + "\" ";
+      // 只为尚未带引号的 short-id 添加引号
+      bool alreadyQuoted =
+          originalId.size() >= 2 &&
+          ((originalId.front() == '"' && originalId.back() == '"') ||
+           (originalId.front() == '\'' && originalId.back() == '\''));
+      std::string modifiedId =
+          alreadyQuoted ? " " + originalId + " " : " \"" + originalId + "\" ";
 
       // 替换原始id为修改后的id
       input.replace(startPos + target.length(),
