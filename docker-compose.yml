@@ -3,7 +3,15 @@
 services:
   subconverter-extended:
     container_name: SubConverter-Extended
-    image: aethersailor/subconverter-extended:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # 与 scripts/ci/dependencies.lock.json 保持一致，确保本地构建使用固定依赖版本。
+        # Keep these in sync with scripts/ci/dependencies.lock.json for reproducible builds.
+        QUICKJSPP_REF: "01cdd3047ced48265b127790848a0ca88204f2c7"
+        LIBCRON_REF: "ee34810b11bd23c8be637345532f91059b68b2d7"
+        TOML11_REF: "b32a2fff0d27e1f7522f26a125101500ddb47156"
     ports:
       # 自定义映射端口号 / Customize the published port.
       - "25500:25500/tcp"
