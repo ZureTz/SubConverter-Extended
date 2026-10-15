@@ -1267,6 +1267,47 @@ void fillClashStringSequence(YAML::Node target, const string_array &values) {
     target[index] = values[index];
 }
 
+// A group with no matched nodes must not silently become a direct route.
+// Prune references as well, including parents made empty by earlier removals.
+// Provider-backed groups are resolved by Mihomo and cannot be judged here.
+void removeEmptyClashGroups(YAML::Node &groups) {
+  if (!groups.IsSequence())
+    return;
+  std::unordered_set<std::string> removed;
+  bool changed;
+  do {
+    changed = false;
+    YAML::Node kept(YAML::NodeType::Sequence);
+    for (const auto &entry : groups) {
+      YAML::Node group = entry;
+      const YAML::Node &view = group;
+      const YAML::Node proxies = view["proxies"];
+      string_array members;
+      if (proxies.IsSequence())
+        members = proxies.as<string_array>();
+      const size_t previous_size = members.size();
+      members.erase(std::remove_if(members.begin(), members.end(),
+                                   [&](const std::string &name) {
+                                     return removed.count(name) != 0;
+                                   }), members.end());
+      if (members.size() != previous_size) {
+        group.remove("proxies");
+        if (!members.empty())
+          fillClashStringSequence(group["proxies"], members);
+      }
+      const YAML::Node use = view["use"];
+      const bool has_provider = use.IsSequence() && use.size() > 0;
+      if (members.empty() && !has_provider) {
+        removed.emplace(view["name"].as<std::string>());
+        changed = true;
+        continue;
+      }
+      kept.push_back(group);
+    }
+    groups.reset(kept);
+  } while (changed);
+}
+
 } // namespace
 
 static void proxyToClashImpl(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
@@ -2112,11 +2153,6 @@ static void proxyToClashImpl(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
       if (use.IsDefined())
         use = YAML::Node();
       fillClashStringSequence(use, x.UsingProvider);
-    } else {
-      // 在 proxy-provider 模式下，不自动添加 DIRECT
-      // 策略组应该只引用 provider 或其他策略组
-      if (filtered_nodelist.empty() && !ext.use_proxy_provider)
-        filtered_nodelist.emplace_back("DIRECT");
     }
     if (!filtered_nodelist.empty())
       fillClashStringSequence(singlegroup["proxies"], filtered_nodelist);
@@ -2127,6 +2163,7 @@ static void proxyToClashImpl(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
     else
       singlegroup.SetStyle(YAML::EmitterStyle::Flow);
   }
+  removeEmptyClashGroups(original_groups);
   if (group_compact)
     original_groups.SetStyle(YAML::EmitterStyle::Flow);
 
