@@ -1283,7 +1283,7 @@ void removeEmptyClashGroups(YAML::Node &groups) {
       const YAML::Node &view = group;
       const YAML::Node proxies = view["proxies"];
       string_array members;
-      if (proxies.IsSequence())
+      if (proxies.IsDefined() && proxies.IsSequence())
         members = proxies.as<string_array>();
       const size_t previous_size = members.size();
       members.erase(std::remove_if(members.begin(), members.end(),
@@ -1296,7 +1296,8 @@ void removeEmptyClashGroups(YAML::Node &groups) {
           fillClashStringSequence(group["proxies"], members);
       }
       const YAML::Node use = view["use"];
-      const bool has_provider = use.IsSequence() && use.size() > 0;
+      const bool has_provider =
+          use.IsDefined() && use.IsSequence() && use.size() > 0;
       if (members.empty() && !has_provider) {
         removed.emplace(view["name"].as<std::string>());
         changed = true;
